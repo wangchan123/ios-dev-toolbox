@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>iOS Dev Toolbox - iOS 开发通用小工具</title>
+    <meta
+      name="description"
+      content="一个本地运行的网页版 iOS 开发通用小工具，包含加密、正则、进制转换、图片识别代码、复杂控件代码生成等。"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <button class="icon-button" id="toggleSidebar" aria-label="展开或收起工具列表" title="工具列表">
+          <span class="icon">☰</span>
+        </button>
+        <span class="logo-mark">iOS</span>
+        <strong>iOS Dev Toolbox</strong>
+      </div>
+      <div class="top-actions">
+        <label class="search-wrap" for="toolSearch">
+          <span class="icon">⌕</span>
+          <input id="toolSearch" type="search" placeholder="搜索工具、Swift、Regex、Hash..." />
+        </label>
+        <button class="icon-button" id="themeToggle" aria-label="切换深色模式" title="切换深色模式">
+          <span class="icon">◐</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="shell">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-head">
+          <span>工具分类</span>
+          <span id="toolCount"></span>
+        </div>
+        <nav id="categoryNav" aria-label="工具分类"></nav>
+      </aside>
+
+      <section class="workspace">
+        <section class="intro">
+          <span class="eyebrow">本地运行 · iOS 开发高频场景</span>
+          <h1>iOS 开发通用小工具</h1>
+          <p>加密、正则、进制转换、图片识别代码、复杂控件模板和调试速查集中在一个网页里，输入内容不会离开浏览器。</p>
+        </section>
+
+        <section class="tool-layout">
+          <div class="tool-grid" id="toolGrid" aria-label="工具列表"></div>
+          <article class="tool-panel" id="toolPanel" aria-live="polite"></article>
+        </section>
+      </section>
+    </main>
+
+    <template id="copyButtonTemplate">
+      <button class="copy-btn" type="button">复制</button>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
