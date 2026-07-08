@@ -40,14 +40,22 @@
       </aside>
 
       <section class="workspace">
-        <section class="intro">
-          <span class="eyebrow">本地运行 · iOS 开发高频场景</span>
-          <h1>iOS 开发通用小工具</h1>
-          <p>加密、正则、进制转换、图片识别代码、复杂控件模板和调试速查集中在一个网页里，输入内容不会离开浏览器。</p>
+        <section class="section-head" id="categoryHero">
+          <div>
+            <span class="eyebrow">本地运行 · iOS 开发高频场景</span>
+            <h1>iOS 开发通用小工具</h1>
+            <p>选择左侧分类，中间只显示当前分类下的工具目录，右侧直接进入使用。</p>
+          </div>
         </section>
 
         <section class="tool-layout">
-          <div class="tool-grid" id="toolGrid" aria-label="工具列表"></div>
+          <div>
+            <div class="column-title">
+              <span id="currentCategoryName"></span>
+              <span id="currentCategoryCount"></span>
+            </div>
+            <div class="tool-grid" id="toolGrid" aria-label="工具列表"></div>
+          </div>
           <article class="tool-panel" id="toolPanel" aria-live="polite"></article>
         </section>
       </section>
