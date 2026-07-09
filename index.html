@@ -9,6 +9,46 @@
       content="一个本地运行的网页版 iOS 开发通用小工具，包含加密、正则、进制转换、图片识别代码、复杂控件代码生成等。"
     />
     <link rel="stylesheet" href="styles.css" />
+    <style>
+      .vision-preview {
+        min-height: 160px;
+        display: grid;
+        gap: 10px;
+        align-items: center;
+        border: 1px dashed var(--line);
+        border-radius: 8px;
+        padding: 12px;
+        background: var(--surface-2);
+      }
+
+      .vision-preview img {
+        width: 100%;
+        max-height: 260px;
+        object-fit: contain;
+        border-radius: 8px;
+        background: var(--surface);
+      }
+
+      .vision-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .vision-meta span,
+      .vision-empty {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .vision-meta span {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 4px 9px;
+        background: var(--surface);
+      }
+    </style>
   </head>
   <body>
     <header class="topbar">
@@ -139,6 +179,135 @@
           },
           true
         );
+
+        renderVision = function () {
+          return panel(
+            "图片识别代码",
+            "上传本地图片查看基础信息，并按 Swift / Objective-C 生成 Vision 常用代码模板。",
+            `<div class="form-grid">
+              <div class="two-col">
+                <label class="field">开发语言<select id="visionLanguage">
+                  <option value="swift">Swift</option>
+                  <option value="objc">Objective-C</option>
+                </select></label>
+                <label class="field">识别类型<select id="visionType">
+                  <option value="ocr">文字识别 OCR</option>
+                  <option value="barcode">二维码 / 条形码</option>
+                  <option value="face">人脸矩形检测</option>
+                  <option value="ml">Core ML 图片分类</option>
+                </select></label>
+              </div>
+              <div class="two-col">
+                <label class="field">输入来源<select id="visionSource">
+                  <option>UIImage</option>
+                  <option>CVPixelBuffer</option>
+                  <option>相机帧 CMSampleBuffer</option>
+                </select></label>
+                <label class="field">本地图片<input id="visionImage" type="file" accept="image/*" /></label>
+              </div>
+              <div class="vision-preview" id="visionPreview">
+                <div class="vision-empty">选择一张本地图片后，这里会显示预览与尺寸信息。</div>
+              </div>
+              <div class="actions"><button class="primary-btn" id="visionRun">生成代码</button></div>
+              <div id="visionOut">${resultBlock("")}</div>
+            </div>`
+          );
+        };
+
+        const visionSourceLine = (source, language) => {
+          if (language === "objc") {
+            if (source === "CVPixelBuffer") {
+              return "VNImageRequestHandler *handler = [[VNImageRequestHandler alloc] initWithCVPixelBuffer:pixelBuffer orientation:kCGImagePropertyOrientationUp options:@{}];";
+            }
+            if (source === "相机帧 CMSampleBuffer") {
+              return "VNImageRequestHandler *handler = [[VNImageRequestHandler alloc] initWithCMSampleBuffer:sampleBuffer orientation:kCGImagePropertyOrientationUp options:@{}];";
+            }
+            return "CGImageRef cgImage = image.CGImage;\n    VNImageRequestHandler *handler = [[VNImageRequestHandler alloc] initWithCGImage:cgImage orientation:kCGImagePropertyOrientationUp options:@{}];";
+          }
+
+          if (source === "CVPixelBuffer") {
+            return "let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])";
+          }
+          if (source === "相机帧 CMSampleBuffer") {
+            return "let handler = VNImageRequestHandler(cmSampleBuffer: sampleBuffer, orientation: .up, options: [:])";
+          }
+          return "guard let cgImage = image.cgImage else { return [] }\n    let handler = VNImageRequestHandler(cgImage: cgImage, orientation: .up, options: [:])";
+        };
+
+        const visionSwiftSamples = (source) => {
+          const sourceLine = visionSourceLine(source, "swift");
+          return {
+            ocr: `import UIKit\nimport Vision\n\nfunc recognizeText(from image: UIImage) throws -> [String] {\n    ${sourceLine}\n    let request = VNRecognizeTextRequest()\n    request.recognitionLevel = .accurate\n    request.usesLanguageCorrection = true\n    request.recognitionLanguages = ["zh-Hans", "en-US"]\n\n    try handler.perform([request])\n    return request.results?.compactMap { $0.topCandidates(1).first?.string } ?? []\n}`,
+            barcode: `import UIKit\nimport Vision\n\nfunc detectBarcodes(from image: UIImage) throws -> [String] {\n    ${sourceLine}\n    let request = VNDetectBarcodesRequest()\n    request.symbologies = [.QR, .EAN13, .Code128]\n\n    try handler.perform([request])\n    return request.results?.compactMap(\\.payloadStringValue) ?? []\n}`,
+            face: `import UIKit\nimport Vision\n\nfunc detectFaces(from image: UIImage) throws -> [CGRect] {\n    ${sourceLine}\n    let request = VNDetectFaceRectanglesRequest()\n\n    try handler.perform([request])\n    return request.results?.map(\\.boundingBox) ?? []\n}`,
+            ml: `import UIKit\nimport Vision\nimport CoreML\n\nfunc classify(image: UIImage, model: MLModel) throws -> [VNClassificationObservation] {\n    ${sourceLine}\n    let visionModel = try VNCoreMLModel(for: model)\n    let request = VNCoreMLRequest(model: visionModel)\n    request.imageCropAndScaleOption = .centerCrop\n\n    try handler.perform([request])\n    return request.results as? [VNClassificationObservation] ?? []\n}`
+          };
+        };
+
+        const visionObjcSamples = (source) => {
+          const sourceLine = visionSourceLine(source, "objc");
+          return {
+            ocr: `#import <UIKit/UIKit.h>\n#import <Vision/Vision.h>\n\n- (void)recognizeTextFromImage:(UIImage *)image completion:(void (^)(NSArray<NSString *> *texts, NSError *error))completion {\n    ${sourceLine}\n    VNRecognizeTextRequest *request = [[VNRecognizeTextRequest alloc] initWithCompletionHandler:^(VNRequest *request, NSError *error) {\n        if (error) { completion(@[], error); return; }\n        NSMutableArray<NSString *> *texts = [NSMutableArray array];\n        for (VNRecognizedTextObservation *observation in request.results) {\n            VNRecognizedText *candidate = [[observation topCandidates:1] firstObject];\n            if (candidate.string) { [texts addObject:candidate.string]; }\n        }\n        completion(texts, nil);\n    }];\n    request.recognitionLevel = VNRequestTextRecognitionLevelAccurate;\n    request.usesLanguageCorrection = YES;\n    request.recognitionLanguages = @[@"zh-Hans", @"en-US"];\n    NSError *performError = nil;\n    [handler performRequests:@[request] error:&performError];\n    if (performError) { completion(@[], performError); }\n}`,
+            barcode: `#import <UIKit/UIKit.h>\n#import <Vision/Vision.h>\n\n- (void)detectBarcodesFromImage:(UIImage *)image completion:(void (^)(NSArray<NSString *> *values, NSError *error))completion {\n    ${sourceLine}\n    VNDetectBarcodesRequest *request = [[VNDetectBarcodesRequest alloc] initWithCompletionHandler:^(VNRequest *request, NSError *error) {\n        if (error) { completion(@[], error); return; }\n        NSMutableArray<NSString *> *values = [NSMutableArray array];\n        for (VNBarcodeObservation *item in request.results) {\n            if (item.payloadStringValue) { [values addObject:item.payloadStringValue]; }\n        }\n        completion(values, nil);\n    }];\n    request.symbologies = @[VNBarcodeSymbologyQR, VNBarcodeSymbologyEAN13, VNBarcodeSymbologyCode128];\n    NSError *performError = nil;\n    [handler performRequests:@[request] error:&performError];\n    if (performError) { completion(@[], performError); }\n}`,
+            face: `#import <UIKit/UIKit.h>\n#import <Vision/Vision.h>\n\n- (void)detectFacesFromImage:(UIImage *)image completion:(void (^)(NSArray<NSValue *> *rects, NSError *error))completion {\n    ${sourceLine}\n    VNDetectFaceRectanglesRequest *request = [[VNDetectFaceRectanglesRequest alloc] initWithCompletionHandler:^(VNRequest *request, NSError *error) {\n        if (error) { completion(@[], error); return; }\n        NSMutableArray<NSValue *> *rects = [NSMutableArray array];\n        for (VNFaceObservation *face in request.results) {\n            [rects addObject:[NSValue valueWithCGRect:face.boundingBox]];\n        }\n        completion(rects, nil);\n    }];\n    NSError *performError = nil;\n    [handler performRequests:@[request] error:&performError];\n    if (performError) { completion(@[], performError); }\n}`,
+            ml: `#import <UIKit/UIKit.h>\n#import <Vision/Vision.h>\n#import <CoreML/CoreML.h>\n\n- (void)classifyImage:(UIImage *)image model:(MLModel *)model completion:(void (^)(NSArray<VNClassificationObservation *> *results, NSError *error))completion {\n    ${sourceLine}\n    NSError *modelError = nil;\n    VNCoreMLModel *visionModel = [VNCoreMLModel modelForMLModel:model error:&modelError];\n    if (modelError) { completion(@[], modelError); return; }\n    VNCoreMLRequest *request = [[VNCoreMLRequest alloc] initWithModel:visionModel completionHandler:^(VNRequest *request, NSError *error) {\n        completion((NSArray<VNClassificationObservation *> *)request.results ?: @[], error);\n    }];\n    request.imageCropAndScaleOption = VNImageCropAndScaleOptionCenterCrop;\n    NSError *performError = nil;\n    [handler performRequests:@[request] error:&performError];\n    if (performError) { completion(@[], performError); }\n}`
+          };
+        };
+
+        runVision = function () {
+          const type = $("#visionType")?.value || "ocr";
+          const language = $("#visionLanguage")?.value || "swift";
+          const source = $("#visionSource")?.value || "UIImage";
+          const samples = language === "objc" ? visionObjcSamples(source) : visionSwiftSamples(source);
+          setOutput("visionOut", samples[type] || "");
+        };
+
+        const formatVisionBytes = (bytes) => {
+          if (bytes < 1024) return `${bytes} B`;
+          if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+          return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+        };
+
+        bindVisionUpload = function () {
+          const input = $("#visionImage");
+          const preview = $("#visionPreview");
+          if (!input || !preview) return;
+          input.onchange = () => {
+            const file = input.files?.[0];
+            if (!file) {
+              preview.innerHTML = `<div class="vision-empty">选择一张本地图片后，这里会显示预览与尺寸信息。</div>`;
+              return;
+            }
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = () => {
+              preview.innerHTML = `<img src="${url}" alt="本地图片预览" /><div class="vision-meta">
+                <span>${escapeHtml(file.name)}</span>
+                <span>${img.naturalWidth} x ${img.naturalHeight}</span>
+                <span>${formatVisionBytes(file.size)}</span>
+                <span>${escapeHtml(file.type || "unknown")}</span>
+              </div>`;
+              URL.revokeObjectURL(url);
+            };
+            img.onerror = () => {
+              preview.innerHTML = `<div class="vision-empty">图片读取失败，请换一张本地图片。</div>`;
+              URL.revokeObjectURL(url);
+            };
+            img.src = url;
+          };
+        };
+
+        const originalBindPanel = bindPanel;
+        bindPanel = function () {
+          originalBindPanel();
+          if (activeTool !== "vision") return;
+          bindVisionUpload();
+          ["visionLanguage", "visionType", "visionSource"].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.onchange = runVision;
+          });
+          runVision();
+        };
 
         activeTool = byCategory(selectedCategory).tools[0].id;
         render();
