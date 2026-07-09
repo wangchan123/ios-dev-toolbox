@@ -66,5 +66,83 @@
     </template>
 
     <script src="app.js"></script>
+    <script>
+      (() => {
+        const descriptions = {
+          "加密与编码": "处理接口签名、Token 调试、Base64 和 URL 参数编码，全部在浏览器本地完成。",
+          "文本与正则": "调试正则、整理日志、格式化 JSON，并快速生成 iOS 模型代码草稿。",
+          "转换与速查": "进制、颜色、时间戳这些高频转换集中在这里，适合开发和排查问题时快速查。",
+          "iOS 代码生成": "生成 Vision 图片识别、复杂控件和 App 配置相关 Swift 模板，减少重复搭架子。"
+        };
+        let selectedCategory = categories[0].name;
+        const byCategory = (name) => categories.find((item) => item.name === name) || categories[0];
+        const toolCategory = (id) => categories.find((item) => item.tools.some((tool) => tool.id === id));
+
+        visibleTools = function () {
+          const q = filter.trim().toLowerCase();
+          const tools = byCategory(selectedCategory).tools.map((tool) => ({ ...tool, category: selectedCategory }));
+          return q ? tools.filter((tool) => `${tool.title} ${tool.desc} ${tool.category}`.toLowerCase().includes(q)) : tools;
+        };
+
+        renderNav = function () {
+          $("#categoryNav").innerHTML = categories
+            .map(
+              (category) => `<button class="nav-category ${category.name === selectedCategory ? "active" : ""}" data-category="${category.name}">
+                <span class="nav-category-main">
+                  <span class="tool-icon">${category.tools[0].icon}</span>
+                  <span><strong>${category.name}</strong><small>${category.tools.map((tool) => tool.title).join(" / ")}</small></span>
+                </span>
+                <span class="nav-count">${category.tools.length}</span>
+              </button>`
+            )
+            .join("");
+        };
+
+        renderGrid = function () {
+          const tools = visibleTools();
+          const category = byCategory(selectedCategory);
+          $("#currentCategoryName").textContent = category.name;
+          $("#currentCategoryCount").textContent = `${tools.length} / ${category.tools.length} 个`;
+          $("#categoryHero").querySelector("h1").textContent = category.name;
+          $("#categoryHero").querySelector("p").textContent = descriptions[selectedCategory];
+          $("#toolGrid").innerHTML = tools.length
+            ? tools
+                .map(
+                  (tool) => `<article class="tool-card ${tool.id === activeTool ? "active" : ""}" data-tool="${tool.id}" tabindex="0">
+                    <div class="tool-icon">${tool.icon}</div>
+                    <div><h3>${tool.title}</h3><p>${tool.desc}</p></div>
+                  </article>`
+                )
+                .join("")
+            : `<div class="empty-state">当前分类没有匹配的工具。</div>`;
+        };
+
+        document.addEventListener(
+          "click",
+          (event) => {
+            const item = event.target.closest("[data-category]");
+            if (!item) return;
+            event.stopImmediatePropagation();
+            selectedCategory = item.dataset.category;
+            activeTool = visibleTools()[0]?.id || byCategory(selectedCategory).tools[0].id;
+            render();
+          },
+          true
+        );
+
+        document.addEventListener(
+          "click",
+          (event) => {
+            const item = event.target.closest("[data-tool]");
+            if (!item) return;
+            selectedCategory = toolCategory(item.dataset.tool)?.name || selectedCategory;
+          },
+          true
+        );
+
+        activeTool = byCategory(selectedCategory).tools[0].id;
+        render();
+      })();
+    </script>
   </body>
 </html>
