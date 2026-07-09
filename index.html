@@ -206,6 +206,12 @@
                 </select></label>
               </div>
               <div class="two-col">
+                <label class="field" id="visionLayoutField">页面类型<select id="visionLayout">
+                  <option value="report">报告页</option>
+                  <option value="list">列表页</option>
+                  <option value="form">表单页</option>
+                  <option value="detail">详情页</option>
+                </select></label>
                 <label class="field">输入来源<select id="visionSource">
                   <option>UIImage</option>
                   <option>CVPixelBuffer</option>
@@ -261,6 +267,20 @@
             face: `#import <UIKit/UIKit.h>\n#import <Vision/Vision.h>\n\n- (void)detectFacesFromImage:(UIImage *)image completion:(void (^)(NSArray<NSValue *> *rects, NSError *error))completion {\n    ${sourceLine}\n    VNDetectFaceRectanglesRequest *request = [[VNDetectFaceRectanglesRequest alloc] initWithCompletionHandler:^(VNRequest *request, NSError *error) {\n        if (error) { completion(@[], error); return; }\n        NSMutableArray<NSValue *> *rects = [NSMutableArray array];\n        for (VNFaceObservation *face in request.results) {\n            [rects addObject:[NSValue valueWithCGRect:face.boundingBox]];\n        }\n        completion(rects, nil);\n    }];\n    NSError *performError = nil;\n    [handler performRequests:@[request] error:&performError];\n    if (performError) { completion(@[], performError); }\n}`,
             ml: `#import <UIKit/UIKit.h>\n#import <Vision/Vision.h>\n#import <CoreML/CoreML.h>\n\n- (void)classifyImage:(UIImage *)image model:(MLModel *)model completion:(void (^)(NSArray<VNClassificationObservation *> *results, NSError *error))completion {\n    ${sourceLine}\n    NSError *modelError = nil;\n    VNCoreMLModel *visionModel = [VNCoreMLModel modelForMLModel:model error:&modelError];\n    if (modelError) { completion(@[], modelError); return; }\n    VNCoreMLRequest *request = [[VNCoreMLRequest alloc] initWithModel:visionModel completionHandler:^(VNRequest *request, NSError *error) {\n        completion((NSArray<VNClassificationObservation *> *)request.results ?: @[], error);\n    }];\n    request.imageCropAndScaleOption = VNImageCropAndScaleOptionCenterCrop;\n    NSError *performError = nil;\n    [handler performRequests:@[request] error:&performError];\n    if (performError) { completion(@[], performError); }\n}`
           };
+        };
+
+        const uiSwiftSample = (layout, meta) => {
+          if (layout === "list") return listSwiftUISample(meta);
+          if (layout === "form") return formSwiftUISample(meta);
+          if (layout === "detail") return detailSwiftUISample(meta);
+          return reportSwiftUISample(meta);
+        };
+
+        const uiUIKitObjcSample = (layout, meta) => {
+          if (layout === "list") return listUIKitObjcSample(meta);
+          if (layout === "form") return formUIKitObjcSample(meta);
+          if (layout === "detail") return detailUIKitObjcSample(meta);
+          return reportUIKitObjcSample(meta);
         };
 
         const reportSwiftUISample = (meta) => `import SwiftUI
@@ -481,12 +501,140 @@ private extension Color {
 }
 @end`;
 
+        const listSwiftUISample = (meta) => `import SwiftUI
+
+// Source image: ${meta.fileName}${meta.width && meta.height ? ` (${meta.width} x ${meta.height})` : ""}
+struct ReportListPage: View {
+    let items = [
+        ("FSFI 评估", "女性性功能评估报告", "50分"),
+        ("盆底筛查", "本周更新", "中度风险"),
+        ("康复记录", "最近 7 天", "4 条")
+    ]
+
+    var body: some View {
+        List(items, id: \\.0) { item in
+            VStack(alignment: .leading, spacing: 8) {
+                Text(item.0).font(.headline)
+                Text(item.1).font(.subheadline).foregroundColor(.secondary)
+                Text(item.2).font(.caption).foregroundColor(.pink)
+            }
+            .padding(.vertical, 6)
+        }
+        .navigationTitle("报告列表")
+    }
+}`;
+
+        const formSwiftUISample = (meta) => `import SwiftUI
+
+// Source image: ${meta.fileName}${meta.width && meta.height ? ` (${meta.width} x ${meta.height})` : ""}
+struct AssessmentFormPage: View {
+    @State private var libido = ""
+    @State private var arousal = ""
+    @State private var lubrication = ""
+
+    var body: some View {
+        Form {
+            Section("基础信息") {
+                TextField("性欲得分", text: $libido)
+                TextField("性唤起得分", text: $arousal)
+                TextField("阴道湿润得分", text: $lubrication)
+            }
+            Section {
+                Button("生成评估报告") {}
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .navigationTitle("评估表单")
+    }
+}`;
+
+        const detailSwiftUISample = (meta) => `import SwiftUI
+
+// Source image: ${meta.fileName}${meta.width && meta.height ? ` (${meta.width} x ${meta.height})` : ""}
+struct MetricDetailPage: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("性欲")
+                    .font(.largeTitle.weight(.semibold))
+                Text("实测值 1 分，参考值 >=2.7 分，越大越好。")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(.secondarySystemBackground))
+                    .frame(height: 180)
+                    .overlay(Text("趋势图 / 解释说明"))
+            }
+            .padding()
+        }
+        .navigationTitle("指标详情")
+    }
+}`;
+
+        const listUIKitObjcSample = (meta) => `#import <UIKit/UIKit.h>
+
+// Source image: ${meta.fileName}${meta.width && meta.height ? ` (${meta.width} x ${meta.height})` : ""}
+@interface ReportListViewController : UITableViewController
+@property (nonatomic, copy) NSArray<NSDictionary *> *items;
+@end
+
+@implementation ReportListViewController
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"报告列表";
+    self.items = @[
+        @{@"title": @"FSFI 评估", @"subtitle": @"女性性功能评估报告", @"value": @"50分"},
+        @{@"title": @"盆底筛查", @"subtitle": @"本周更新", @"value": @"中度风险"}
+    ];
+}
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.items.count; }
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"cell"];
+    if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"cell"];
+    NSDictionary *item = self.items[indexPath.row];
+    cell.textLabel.text = item[@"title"];
+    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", item[@"subtitle"], item[@"value"]];
+    return cell;
+}
+@end`;
+
+        const formUIKitObjcSample = (meta) => `#import <UIKit/UIKit.h>
+
+// Source image: ${meta.fileName}${meta.width && meta.height ? ` (${meta.width} x ${meta.height})` : ""}
+@interface AssessmentFormViewController : UITableViewController
+@end
+
+@implementation AssessmentFormViewController
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"评估表单";
+}
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 2; }
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return section == 0 ? 3 : 1; }
+@end`;
+
+        const detailUIKitObjcSample = (meta) => `#import <UIKit/UIKit.h>
+
+// Source image: ${meta.fileName}${meta.width && meta.height ? ` (${meta.width} x ${meta.height})` : ""}
+@interface MetricDetailViewController : UIViewController
+@end
+
+@implementation MetricDetailViewController
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"指标详情";
+    self.view.backgroundColor = UIColor.systemBackgroundColor;
+}
+@end`;
+
         runVision = function () {
           const type = $("#visionType")?.value || "ocr";
           const language = $("#visionLanguage")?.value || "swift";
           const source = $("#visionSource")?.value || "UIImage";
           const samples = language === "objc" ? visionObjcSamples(source) : visionSwiftSamples(source);
           const typeLabel = $("#visionType")?.selectedOptions?.[0]?.textContent || "图片识别";
+          const layout = $("#visionLayout")?.value || "report";
+          const layoutLabel = $("#visionLayout")?.selectedOptions?.[0]?.textContent || "报告页";
           const file = $("#visionImage")?.files?.[0];
           const imageMeta = {
             fileName: file?.name || "screenshot.png",
@@ -497,15 +645,16 @@ private extension Color {
           const code =
             type === "ui_report"
               ? language === "objc"
-                ? reportUIKitObjcSample(imageMeta)
-                : reportSwiftUISample(imageMeta)
+                ? uiUIKitObjcSample(layout, imageMeta)
+                : uiSwiftSample(layout, imageMeta)
               : samples[type] || "";
           setOutput("visionOut", code);
+          updateVisionLayoutVisibility(type);
           const status = $("#visionStatus");
           if (status) {
             status.textContent =
               type === "ui_report"
-                ? `已生成 ${language === "objc" ? "Objective-C UIKit" : "SwiftUI"} · ${typeLabel} 模板 · ${fileText} · ${new Date().toLocaleTimeString()}`
+                ? `已生成 ${language === "objc" ? "Objective-C UIKit" : "SwiftUI"} · ${layoutLabel}${typeLabel} 模板 · ${fileText} · ${new Date().toLocaleTimeString()}`
                 : `已生成 ${language === "objc" ? "Objective-C" : "Swift"} · ${typeLabel} 模板 · ${fileText} · ${new Date().toLocaleTimeString()}`;
           }
           const button = $("#visionRun");
@@ -557,12 +706,18 @@ private extension Color {
           };
         };
 
+        const updateVisionLayoutVisibility = (type) => {
+          const field = $("#visionLayoutField");
+          if (!field) return;
+          field.style.display = type === "ui_report" ? "" : "none";
+        };
+
         const originalBindPanel = bindPanel;
         bindPanel = function () {
           originalBindPanel();
           if (activeTool !== "vision") return;
           bindVisionUpload();
-          ["visionLanguage", "visionType", "visionSource"].forEach((id) => {
+          ["visionLanguage", "visionType", "visionSource", "visionLayout"].forEach((id) => {
             const el = document.getElementById(id);
             if (el) el.onchange = runVision;
           });
