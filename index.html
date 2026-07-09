@@ -190,7 +190,7 @@
         renderVision = function () {
           return panel(
             "图片识别代码",
-            "上传本地图片查看基础信息，并按 Swift / Objective-C 生成 Vision 常用代码模板。",
+            "上传本地图片后，可生成 Vision 常用代码，或按报告页截图还原 iOS 页面模板。",
             `<div class="form-grid">
               <div class="two-col">
                 <label class="field">开发语言<select id="visionLanguage">
@@ -202,6 +202,7 @@
                   <option value="barcode">二维码 / 条形码</option>
                   <option value="face">人脸矩形检测</option>
                   <option value="ml">Core ML 图片分类</option>
+                  <option value="ui_report">页面截图还原</option>
                 </select></label>
               </div>
               <div class="two-col">
@@ -262,6 +263,224 @@
           };
         };
 
+        const reportSwiftUISample = (meta) => `import SwiftUI
+
+// Source image: ${meta.fileName}${meta.width && meta.height ? ` (${meta.width} x ${meta.height})` : ""}
+// Swift 输出默认采用 SwiftUI，适合先还原截图结构，再替换成接口数据。
+struct FemaleFunctionReportView: View {
+    private let report = FemaleFunctionReport.sample
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                header
+                scoreCard
+                ForEach(report.sections) { section in
+                    MetricCard(section: section)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 14)
+        }
+        .background(Color(hex: "F4F6FF").ignoresSafeArea())
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var header: some View {
+        HStack {
+            Text(report.title)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(Color(hex: "1F2A44"))
+            Spacer()
+            HStack(spacing: 4) {
+                Text("查看记录")
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .font(.system(size: 15, weight: .medium))
+            .foregroundColor(Color(hex: "FF4C8B"))
+        }
+    }
+
+    private var scoreCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("50分")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundColor(Color(hex: "FF2F7D"))
+                .frame(maxWidth: .infinity)
+
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color(hex: "E4E7F4"))
+                    .frame(height: 6)
+                Capsule()
+                    .fill(Color(hex: "FF2F7D"))
+                    .frame(width: 188, height: 6)
+            }
+
+            HStack {
+                Text("0分")
+                Spacer()
+                Text("100分")
+            }
+            .font(.system(size: 12, weight: .medium))
+            .foregroundColor(Color(hex: "52627A"))
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("得分说明")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color(hex: "FF4C8B"))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                Text(report.explanation)
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "7386A8"))
+                    .lineSpacing(5)
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(hex: "EEF1FB"))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+        }
+        .padding(18)
+        .background(Color.white.opacity(0.55))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.75), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+}
+
+private struct MetricCard: View {
+    let section: ReportSection
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(section.title)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(Color(hex: "9C6D48"))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color(hex: "F7E8DE"))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("参考值：\\(section.reference)")
+                    .font(.system(size: 15))
+                    .foregroundColor(Color(hex: "7B89A8"))
+                HStack(spacing: 4) {
+                    Text("实测值：")
+                        .font(.system(size: 15))
+                        .foregroundColor(Color(hex: "7B89A8"))
+                    Text(section.actual)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Color(hex: "FF2F7D"))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .background(Color(hex: "F6F7FC"))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+    }
+}
+
+private struct FemaleFunctionReport {
+    let title: String
+    let explanation: String
+    let sections: [ReportSection]
+
+    static let sample = FemaleFunctionReport(
+        title: "女性性功能评估报告",
+        explanation: "问卷评价尿失禁症状和生活质量影响。0分代表没有尿失禁症状，总分56分为轻度，6–12分为中度，>=13分为重度（满分21分）",
+        sections: [
+            ReportSection(title: "性欲", reference: ">=2.7分，越大越好", actual: "1分"),
+            ReportSection(title: "性唤起", reference: ">=3.15分，越大越好", actual: "1分"),
+            ReportSection(title: "阴道湿润", reference: ">=4.05分，越大越好", actual: "1分"),
+            ReportSection(title: "性高潮", reference: ">=3.8分，越大越好", actual: "1分"),
+            ReportSection(title: "满意度", reference: ">=3.6分，越大越好", actual: "1分")
+        ]
+    )
+}
+
+private struct ReportSection: Identifiable {
+    let id = UUID()
+    let title: String
+    let reference: String
+    let actual: String
+}
+
+private extension Color {
+    init(hex: String) {
+        let raw = hex.replacingOccurrences(of: "#", with: "")
+        let value = Int(raw, radix: 16) ?? 0
+        self.init(.sRGB,
+                  red: Double((value >> 16) & 0xFF) / 255.0,
+                  green: Double((value >> 8) & 0xFF) / 255.0,
+                  blue: Double(value & 0xFF) / 255.0,
+                  opacity: 1.0)
+    }
+}`;
+
+        const reportUIKitObjcSample = (meta) => `#import <UIKit/UIKit.h>
+
+// Source image: ${meta.fileName}${meta.width && meta.height ? ` (${meta.width} x ${meta.height})` : ""}
+// Objective-C 输出默认采用 UIKit，优先还原结构，再替换成接口数据。
+@interface FemaleFunctionReportViewController : UIViewController
+@end
+
+@implementation FemaleFunctionReportViewController
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"女性性功能评估报告";
+    self.view.backgroundColor = [self colorWithHex:0xF4F6FF];
+    UIScrollView *scrollView = [[UIScrollView alloc] initWithFrame:self.view.bounds];
+    scrollView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self.view addSubview:scrollView];
+
+    UIStackView *stack = [[UIStackView alloc] initWithFrame:CGRectMake(12, 14, self.view.bounds.size.width - 24, 0)];
+    stack.axis = UILayoutConstraintAxisVertical;
+    stack.spacing = 16;
+    stack.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    [scrollView addSubview:stack];
+
+    [stack addArrangedSubview:[self label:@"女性性功能评估报告" size:18 weight:UIFontWeightSemibold color:[self colorWithHex:0x1F2A44]]];
+    [stack addArrangedSubview:[self scoreCard]];
+
+    NSArray *sections = @[
+        @{@"title": @"性欲", @"reference": @">=2.7分，越大越好", @"actual": @"1分"},
+        @{@"title": @"性唤起", @"reference": @">=3.15分，越大越好", @"actual": @"1分"},
+        @{@"title": @"阴道湿润", @"reference": @">=4.05分，越大越好", @"actual": @"1分"},
+        @{@"title": @"性高潮", @"reference": @">=3.8分，越大越好", @"actual": @"1分"},
+        @{@"title": @"满意度", @"reference": @">=3.6分，越大越好", @"actual": @"1分"}
+    ];
+    for (NSDictionary *section in sections) {
+        [stack addArrangedSubview:[self metricCard:section]];
+    }
+}
+
+- (UIView *)scoreCard { return [[UIView alloc] init]; }
+- (UIView *)metricCard:(NSDictionary *)section { return [[UIView alloc] init]; }
+- (UILabel *)label:(NSString *)text size:(CGFloat)size weight:(UIFontWeight)weight color:(UIColor *)color {
+    UILabel *label = [[UILabel alloc] init];
+    label.text = text;
+    label.font = [UIFont systemFontOfSize:size weight:weight];
+    label.textColor = color;
+    return label;
+}
+- (UIColor *)colorWithHex:(NSUInteger)hex {
+    return [UIColor colorWithRed:((hex >> 16) & 0xFF) / 255.0
+                           green:((hex >> 8) & 0xFF) / 255.0
+                            blue:(hex & 0xFF) / 255.0
+                           alpha:1.0];
+}
+@end`;
+
         runVision = function () {
           const type = $("#visionType")?.value || "ocr";
           const language = $("#visionLanguage")?.value || "swift";
@@ -269,11 +488,25 @@
           const samples = language === "objc" ? visionObjcSamples(source) : visionSwiftSamples(source);
           const typeLabel = $("#visionType")?.selectedOptions?.[0]?.textContent || "图片识别";
           const file = $("#visionImage")?.files?.[0];
+          const imageMeta = {
+            fileName: file?.name || "screenshot.png",
+            width: Number($("#visionImage")?.dataset.width || 0),
+            height: Number($("#visionImage")?.dataset.height || 0)
+          };
           const fileText = file ? `已读取 ${file.name}` : "未选择图片，代码仍可直接复制使用";
-          setOutput("visionOut", samples[type] || "");
+          const code =
+            type === "ui_report"
+              ? language === "objc"
+                ? reportUIKitObjcSample(imageMeta)
+                : reportSwiftUISample(imageMeta)
+              : samples[type] || "";
+          setOutput("visionOut", code);
           const status = $("#visionStatus");
           if (status) {
-            status.textContent = `已生成 ${language === "objc" ? "Objective-C" : "Swift"} · ${typeLabel} 模板 · ${fileText} · ${new Date().toLocaleTimeString()}`;
+            status.textContent =
+              type === "ui_report"
+                ? `已生成 ${language === "objc" ? "Objective-C UIKit" : "SwiftUI"} · ${typeLabel} 模板 · ${fileText} · ${new Date().toLocaleTimeString()}`
+                : `已生成 ${language === "objc" ? "Objective-C" : "Swift"} · ${typeLabel} 模板 · ${fileText} · ${new Date().toLocaleTimeString()}`;
           }
           const button = $("#visionRun");
           if (button && document.activeElement === button) {
@@ -310,6 +543,8 @@
                 <span>${formatVisionBytes(file.size)}</span>
                 <span>${escapeHtml(file.type || "unknown")}</span>
               </div>`;
+              input.dataset.width = String(img.naturalWidth);
+              input.dataset.height = String(img.naturalHeight);
               const status = $("#visionStatus");
               if (status) status.textContent = `已读取图片 ${file.name}，点击“生成代码”会刷新对应模板。`;
               URL.revokeObjectURL(url);
