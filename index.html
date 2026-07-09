@@ -48,6 +48,13 @@
         padding: 4px 9px;
         background: var(--surface);
       }
+
+      .vision-status {
+        min-height: 24px;
+        color: var(--accent);
+        font-size: 13px;
+        line-height: 1.6;
+      }
     </style>
   </head>
   <body>
@@ -209,6 +216,7 @@
                 <div class="vision-empty">选择一张本地图片后，这里会显示预览与尺寸信息。</div>
               </div>
               <div class="actions"><button class="primary-btn" id="visionRun">生成代码</button></div>
+              <div class="vision-status" id="visionStatus" role="status">选择开发语言和识别类型后，点击生成代码。</div>
               <div id="visionOut">${resultBlock("")}</div>
             </div>`
           );
@@ -259,7 +267,22 @@
           const language = $("#visionLanguage")?.value || "swift";
           const source = $("#visionSource")?.value || "UIImage";
           const samples = language === "objc" ? visionObjcSamples(source) : visionSwiftSamples(source);
+          const typeLabel = $("#visionType")?.selectedOptions?.[0]?.textContent || "图片识别";
+          const file = $("#visionImage")?.files?.[0];
+          const fileText = file ? `已读取 ${file.name}` : "未选择图片，代码仍可直接复制使用";
           setOutput("visionOut", samples[type] || "");
+          const status = $("#visionStatus");
+          if (status) {
+            status.textContent = `已生成 ${language === "objc" ? "Objective-C" : "Swift"} · ${typeLabel} 模板 · ${fileText} · ${new Date().toLocaleTimeString()}`;
+          }
+          const button = $("#visionRun");
+          if (button && document.activeElement === button) {
+            button.textContent = "已生成";
+            window.clearTimeout(button._visionTimer);
+            button._visionTimer = window.setTimeout(() => {
+              button.textContent = "生成代码";
+            }, 900);
+          }
         };
 
         const formatVisionBytes = (bytes) => {
@@ -287,6 +310,8 @@
                 <span>${formatVisionBytes(file.size)}</span>
                 <span>${escapeHtml(file.type || "unknown")}</span>
               </div>`;
+              const status = $("#visionStatus");
+              if (status) status.textContent = `已读取图片 ${file.name}，点击“生成代码”会刷新对应模板。`;
               URL.revokeObjectURL(url);
             };
             img.onerror = () => {
