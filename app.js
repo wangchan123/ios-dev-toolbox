@@ -22,14 +22,6 @@ const categories = [
       { id: "color", icon: "RGB", title: "颜色转换", desc: "HEX、RGB、UIColor、SwiftUI Color 代码互转。" },
       { id: "date", icon: "T", title: "时间戳转换", desc: "秒、毫秒、ISO8601 与 iOS Date 代码速查。" }
     ]
-  },
-  {
-    name: "iOS 代码生成",
-    tools: [
-      { id: "vision", icon: "VN", title: "图片识别代码", desc: "生成 Vision OCR、二维码、人脸检测、Core ML 分类模板。" },
-      { id: "controls", icon: "UI", title: "复杂控件模板", desc: "生成 UICollectionView、瀑布流、分页 Tab、表单校验等 Swift 模板。" },
-      { id: "assets", icon: "App", title: "App 资源清单", desc: "App Icon、Launch、隐私权限文案与 Info.plist 速查。" }
-    ]
   }
 ];
 
@@ -42,12 +34,21 @@ const commonRegex = [
   ["十六进制颜色", "^#?([A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$"]
 ];
 
-let activeTool = "hash";
+const categoryDescriptions = {
+  加密与编码: "处理接口签名、Token 调试、Base64 和 URL 参数编码，全部在浏览器本地完成。",
+  文本与正则: "调试正则、整理日志、格式化 JSON，并快速生成 iOS 模型代码草稿。",
+  转换与速查: "进制、颜色、时间戳这些高频转换集中在这里，适合开发和排查问题时快速查。"
+};
+
+let activeCategory = categories[0].name;
+let activeTool = categories[0].tools[0].id;
 let filter = "";
 
 const $ = (selector) => document.querySelector(selector);
 const allTools = () => categories.flatMap((category) => category.tools.map((tool) => ({ ...tool, category: category.name })));
 const getTool = (id) => allTools().find((tool) => tool.id === id);
+const getCategory = (name) => categories.find((category) => category.name === name) || categories[0];
+const getToolCategory = (id) => categories.find((category) => category.tools.some((tool) => tool.id === id));
 
 function escapeHtml(value) {
   return String(value)
@@ -61,42 +62,47 @@ function render() {
   renderNav();
   renderGrid();
   renderTool();
-  $("#toolCount").textContent = `${allTools().length} 个`;
+  $("#toolCount").textContent = `${categories.length} 类`;
 }
 
 function visibleTools() {
   const q = filter.trim().toLowerCase();
-  if (!q) return allTools();
-  return allTools().filter((tool) => `${tool.title} ${tool.desc} ${tool.category}`.toLowerCase().includes(q));
+  const currentTools = getCategory(activeCategory).tools.map((tool) => ({ ...tool, category: activeCategory }));
+  if (!q) return currentTools;
+  return currentTools.filter((tool) => `${tool.title} ${tool.desc} ${tool.category}`.toLowerCase().includes(q));
 }
 
 function renderNav() {
   $("#categoryNav").innerHTML = categories
-    .map((category) => {
-      const tools = category.tools
-        .filter((tool) => visibleTools().some((item) => item.id === tool.id))
-        .map(
-          (tool) => `<button class="nav-tool ${tool.id === activeTool ? "active" : ""}" data-tool="${tool.id}">
-            <span class="tool-icon">${tool.icon}</span><span>${tool.title}</span>
-          </button>`
-        )
-        .join("");
-      if (!tools) return "";
-      return `<section class="category"><h2 class="category-title">${category.name}</h2>${tools}</section>`;
-    })
+    .map(
+      (category) => `<button class="nav-category ${category.name === activeCategory ? "active" : ""}" data-category="${category.name}">
+        <span class="nav-category-main">
+          <span class="tool-icon">${category.tools[0].icon}</span>
+          <span><strong>${category.name}</strong><small>${category.tools.map((tool) => tool.title).join(" / ")}</small></span>
+        </span>
+        <span class="nav-count">${category.tools.length}</span>
+      </button>`
+    )
     .join("");
 }
 
 function renderGrid() {
   const tools = visibleTools();
-  $("#toolGrid").innerHTML = tools
-    .map(
-      (tool) => `<article class="tool-card ${tool.id === activeTool ? "active" : ""}" data-tool="${tool.id}" tabindex="0">
+  const currentCategory = getCategory(activeCategory);
+  $("#currentCategoryName").textContent = currentCategory.name;
+  $("#currentCategoryCount").textContent = `${tools.length} / ${currentCategory.tools.length} 个`;
+  $("#categoryHero").querySelector("h1").textContent = currentCategory.name;
+  $("#categoryHero").querySelector("p").textContent = categoryDescriptions[activeCategory] || "选择一个工具开始处理当前任务。";
+  $("#toolGrid").innerHTML = tools.length
+    ? tools
+        .map(
+          (tool) => `<article class="tool-card ${tool.id === activeTool ? "active" : ""}" data-tool="${tool.id}" tabindex="0">
         <div class="tool-icon">${tool.icon}</div>
         <div><h3>${tool.title}</h3><p>${tool.desc}</p></div>
       </article>`
-    )
-    .join("");
+        )
+        .join("")
+    : `<div class="empty-state">当前分类没有匹配的工具。</div>`;
 }
 
 function panel(title, desc, body) {
@@ -118,10 +124,7 @@ function renderTool() {
     strings: renderStrings,
     radix: renderRadix,
     color: renderColor,
-    date: renderDate,
-    vision: renderVision,
-    controls: renderControls,
-    assets: renderAssets
+    date: renderDate
   };
   $("#toolPanel").innerHTML = renderers[tool.id]();
   bindPanel();
@@ -259,61 +262,8 @@ function renderDate() {
   );
 }
 
-function renderVision() {
-  return panel(
-    "图片识别代码",
-    "根据识别类型生成 Vision / VisionKit / Core ML 常用 Swift 模板。",
-    `<div class="form-grid">
-      <div class="two-col">
-        <label class="field">识别类型<select id="visionType">
-          <option value="ocr">文字识别 OCR</option>
-          <option value="barcode">二维码 / 条形码</option>
-          <option value="face">人脸矩形检测</option>
-          <option value="ml">Core ML 图片分类</option>
-        </select></label>
-        <label class="field">输入来源<select id="visionSource"><option>UIImage</option><option>CVPixelBuffer</option><option>相机帧 CMSampleBuffer</option></select></label>
-      </div>
-      <div class="actions"><button class="primary-btn" id="visionRun">生成代码</button></div>
-      <div id="visionOut">${resultBlock("")}</div>
-    </div>`
-  );
-}
-
-function renderControls() {
-  return panel(
-    "复杂控件模板",
-    "生成 iOS 项目里高频复杂界面的 Swift 草稿，方便继续粘贴改造。",
-    `<div class="form-grid">
-      <label class="field">控件类型<select id="controlType">
-        <option value="collection">Compositional CollectionView</option>
-        <option value="tabs">分页 Tabs + PageView</option>
-        <option value="form">动态表单 + 校验</option>
-        <option value="waterfall">瀑布流 Layout</option>
-      </select></label>
-      <div class="actions"><button class="primary-btn" id="controlRun">生成代码</button></div>
-      <div id="controlOut">${resultBlock("")}</div>
-    </div>`
-  );
-}
-
-function renderAssets() {
-  return panel(
-    "App 资源清单",
-    "快速检查 App Icon、权限文案、URL Scheme、ATS 与隐私清单。",
-    `<div class="snippet-list">
-      ${[
-        ["App Icon 尺寸", "1024 App Store；180 iPhone @3x；120 iPhone @2x；167 iPad Pro；152 iPad；76 iPad @1x。"],
-        ["常见权限 Key", "NSCameraUsageDescription、NSPhotoLibraryUsageDescription、NSMicrophoneUsageDescription、NSLocationWhenInUseUsageDescription、NSUserTrackingUsageDescription。"],
-        ["Info.plist 检查", "Bundle display name、URL Types、Associated Domains、ATS、Background Modes、Supported interface orientations。"],
-        ["隐私清单", "PrivacyInfo.xcprivacy 声明 Required Reason API、收集数据类型、第三方 SDK 隐私要求。"]
-      ].map(([title, text]) => `<article class="mini-card"><h3>${title}</h3><p>${text}</p></article>`).join("")}
-      ${resultBlock(`// Info.plist 相机权限示例\n<key>NSCameraUsageDescription</key>\n<string>用于扫描二维码和识别图片内容</string>`)}
-    </div>`
-  );
-}
-
 function bindPanel() {
-  $("#toolPanel").addEventListener("click", panelClick);
+  $("#toolPanel").onclick = panelClick;
   const liveInputs = ["regexPattern", "regexFlags", "regexText"];
   liveInputs.forEach((id) => {
     const el = document.getElementById(id);
@@ -324,8 +274,6 @@ function bindPanel() {
   if (activeTool === "radix") runRadix();
   if (activeTool === "color") runColor();
   if (activeTool === "date") runDate();
-  if (activeTool === "vision") runVision();
-  if (activeTool === "controls") runControls();
 }
 
 async function panelClick(event) {
@@ -342,8 +290,6 @@ async function panelClick(event) {
   if (target.id === "radixRun") runRadix();
   if (target.id === "colorRun") runColor();
   if (target.id === "dateRun") runDate();
-  if (target.id === "visionRun") runVision();
-  if (target.id === "controlRun") runControls();
   if (target.dataset.baseAction) runBase64(target.dataset.baseAction);
   if (target.dataset.jsonAction) runJson(target.dataset.jsonAction);
   if (target.dataset.stringAction) runStrings(target.dataset.stringAction);
@@ -509,28 +455,6 @@ function runDate() {
   );
 }
 
-function runVision() {
-  const type = $("#visionType").value;
-  const samples = {
-    ocr: `import Vision\n\nfunc recognizeText(in image: CGImage) async throws -> [String] {\n    let request = VNRecognizeTextRequest()\n    request.recognitionLevel = .accurate\n    request.usesLanguageCorrection = true\n    request.recognitionLanguages = [\"zh-Hans\", \"en-US\"]\n\n    let handler = VNImageRequestHandler(cgImage: image, options: [:])\n    try handler.perform([request])\n    return request.results?.compactMap { $0.topCandidates(1).first?.string } ?? []\n}`,
-    barcode: `import Vision\n\nfunc detectBarcode(in image: CGImage) throws -> [String] {\n    let request = VNDetectBarcodesRequest()\n    request.symbologies = [.QR, .EAN13, .Code128]\n    let handler = VNImageRequestHandler(cgImage: image, options: [:])\n    try handler.perform([request])\n    return request.results?.compactMap(\\.payloadStringValue) ?? []\n}`,
-    face: `import Vision\n\nfunc detectFaces(in image: CGImage) throws -> [CGRect] {\n    let request = VNDetectFaceRectanglesRequest()\n    let handler = VNImageRequestHandler(cgImage: image, options: [:])\n    try handler.perform([request])\n    return request.results?.map(\\.boundingBox) ?? []\n}`,
-    ml: `import Vision\nimport CoreML\n\nfunc classify(image: CGImage, model: MLModel) throws -> [VNClassificationObservation] {\n    let visionModel = try VNCoreMLModel(for: model)\n    let request = VNCoreMLRequest(model: visionModel)\n    request.imageCropAndScaleOption = .centerCrop\n    let handler = VNImageRequestHandler(cgImage: image, options: [:])\n    try handler.perform([request])\n    return request.results as? [VNClassificationObservation] ?? []\n}`
-  };
-  setOutput("visionOut", samples[type]);
-}
-
-function runControls() {
-  const type = $("#controlType").value;
-  const samples = {
-    collection: `func makeLayout() -> UICollectionViewLayout {\n    UICollectionViewCompositionalLayout { sectionIndex, environment in\n        let item = NSCollectionLayoutItem(layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .estimated(96)))\n        let group = NSCollectionLayoutGroup.vertical(layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .estimated(96)), subitems: [item])\n        let section = NSCollectionLayoutSection(group: group)\n        section.contentInsets = .init(top: 12, leading: 16, bottom: 12, trailing: 16)\n        section.interGroupSpacing = 12\n        return section\n    }\n}`,
-    tabs: `final class PagerController: UIViewController, UIPageViewControllerDataSource {\n    private let pages: [UIViewController]\n    private let pageVC = UIPageViewController(transitionStyle: .scroll, navigationOrientation: .horizontal)\n\n    init(pages: [UIViewController]) {\n        self.pages = pages\n        super.init(nibName: nil, bundle: nil)\n    }\n\n    required init?(coder: NSCoder) { fatalError(\"init(coder:) has not been implemented\") }\n}`,
-    form: `struct FieldRule {\n    let title: String\n    let validate: (String) -> String?\n}\n\nlet rules = [\n    FieldRule(title: \"手机号\") { $0.range(of: #\"^1[3-9]\\d{9}$\"#, options: .regularExpression) == nil ? \"手机号格式不正确\" : nil },\n    FieldRule(title: \"邮箱\") { $0.contains(\"@\") ? nil : \"邮箱格式不正确\" }\n]`,
-    waterfall: `final class WaterfallLayout: UICollectionViewLayout {\n    var columnCount = 2\n    var spacing: CGFloat = 10\n    private var attributes: [UICollectionViewLayoutAttributes] = []\n\n    override func prepare() {\n        super.prepare()\n        attributes.removeAll()\n        // 根据 item 高度缓存每个 cell 的 frame，再返回 layoutAttributesForElements\n    }\n}`
-  };
-  setOutput("controlOut", samples[type]);
-}
-
 function applySample(type) {
   if (type === "hash") $("#hashInput").value = "com.example.app:1700000000";
   if (type === "jwt") $("#jwtInput").value = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMDAxIiwibmFtZSI6ImlPUyBEZXYiLCJpYXQiOjE3MDAwMDAwMDB9.signature";
@@ -545,9 +469,19 @@ function applySample(type) {
 }
 
 document.addEventListener("click", (event) => {
+  const categoryEl = event.target.closest("[data-category]");
+  if (categoryEl) {
+    activeCategory = categoryEl.dataset.category;
+    const tools = visibleTools();
+    activeTool = tools[0]?.id || getCategory(activeCategory).tools[0].id;
+    render();
+    return;
+  }
+
   const toolEl = event.target.closest("[data-tool]");
   if (!toolEl) return;
   activeTool = toolEl.dataset.tool;
+  activeCategory = getToolCategory(activeTool)?.name || activeCategory;
   render();
 });
 
@@ -555,6 +489,7 @@ document.addEventListener("keydown", (event) => {
   const card = event.target.closest(".tool-card");
   if (card && (event.key === "Enter" || event.key === " ")) {
     activeTool = card.dataset.tool;
+    activeCategory = getToolCategory(activeTool)?.name || activeCategory;
     render();
   }
 });
